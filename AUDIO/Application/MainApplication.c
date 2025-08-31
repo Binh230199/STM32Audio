@@ -10,6 +10,7 @@
 #include "Core/RTOS/ThreadPool/core_thread.h"
 #include "Core/Logger/core_logger.h"
 #include "Common/uart_sink.h"
+#include "AudioRecorder/audio_recorder.h"
 
 static void loggerInit(void) {
   core_logger_init();
@@ -33,7 +34,7 @@ static void threadpoolInit(void) {
   threadpool_config.thread_count = 4;
   threadpool_config.queue_size = 20;
   threadpool_config.default_timeout = 100;
-  threadpool_config.stack_size = 2048;
+  threadpool_config.stack_size = 4096;
   threadpool_config.low_power_mode = false;
   threadpool_config.default_thread_priority = osPriorityNormal;
 
@@ -43,55 +44,37 @@ static void threadpoolInit(void) {
 void ApplicationInit(void) {
   loggerInit();
   threadpoolInit();
+
+  // Initialize Audio Recorder
+  audio_recorder_init();
 }
 
-static void taskBlink100ms(void* arg) {
-  LOGI("Start task");
+static void taskAudioControl(void* arg) {
+  LOGI("Audio Control Task started");
 
-  while (1) {
-    HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_0);
-    LOGI("GPIOE, GPIO_PIN_0");
-    osDelay(100);
-  }
-}
+  // Wait for system to stabilize
+  osDelay(2000);
 
-static void taskBlink200ms(void* arg) {
-  LOGI("Start task");
+  // Start audio recording
+  audio_recorder_start();
+  LOGI("Audio recording started");
 
-  while (1) {
-    HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);
-    LOGI("GPIOE, GPIO_PIN_1");
-    osDelay(200);
-  }
-}
-
-static void taskBlink500ms(void* arg) {
-  LOGI("Start task");
-
-  while (1) {
-    HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_2);
-    LOGI("GPIOE, GPIO_PIN_2");
-    osDelay(500);
-  }
-}
-
-static void taskBlink1000ms(void* arg) {
-  LOGI("Start task");
-
-  while (1) {
-    HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_3);
-    LOGI("GPIOE, GPIO_PIN_3");
-    osDelay(1000);
-  }
+//  while (1) {
+//    // Audio control logic here
+//    // You can add commands to start/stop recording
+//    // or switch between recording modes
+//    osDelay(1000);
+//  }
 }
 
 void ApplicationRun(void) {
   LOGI("Run Main application");
 
-  core_thread_add_task(taskBlink100ms, NULL, THREADPOOL_PRIORITY_NORMAL, osPriorityNormal, 100);
-  core_thread_add_task(taskBlink200ms, NULL, THREADPOOL_PRIORITY_NORMAL, osPriorityNormal, 100);
-  core_thread_add_task(taskBlink500ms, NULL, THREADPOOL_PRIORITY_NORMAL, osPriorityNormal, 100);
-  core_thread_add_task(taskBlink1000ms, NULL, THREADPOOL_PRIORITY_NORMAL, osPriorityNormal, 100);
+  core_thread_add_task(taskAudioControl, NULL, THREADPOOL_PRIORITY_HIGH, osPriorityHigh, 100);
+
+  // Add audio tasks to threadpool
+  core_thread_add_task(audio_recorder_task, NULL, THREADPOOL_PRIORITY_HIGH, osPriorityHigh, 200);
+  core_thread_add_task(audio_processor_task, NULL, THREADPOOL_PRIORITY_HIGH, osPriorityHigh, 200);
 }
 
 
